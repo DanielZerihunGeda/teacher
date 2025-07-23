@@ -1,8 +1,6 @@
 {
   "query": {
-    "template": "#TODO prompt {p_score}\n\n{concept}",
-    "input_variables": ["p_score", "concept"],
-    "template_format": "f-string"
+    "template": "#TODO prompt {context}\n\n{evaluation}"
   },
   
   "solver": {
