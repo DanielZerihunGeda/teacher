@@ -1,38 +1,59 @@
 import json
 from pathlib import Path
-from langchain_core.prompts import PromptTemplate
 import asyncio
+import os
+import fire
+template_path = os.path.join(os.path.dirname(__file__), "templates", "templates.json")
 
-_semaphore = asyncio.Semaphore(100)
-async def load_prompt(prompt_path: str = "templates.json", 
-                  prompt_name: str = "query",
-                  time_out : float = 60) -> PromptTemplate:
-  """
-  Args:
+# Load templates safely
+try:
+    with open(template_path, 'r', encoding='utf-8') as f:
+        PROMPT = json.load(f)
+except FileNotFoundError:
+    raise RuntimeError(f"Could not find templates file at: {template_path}")
+except json.JSONDecodeError:
+    raise RuntimeError(f"Invalid JSON format in templates file: {template_path}")
 
-    prompt_path : json file where prompts and corresponding variables live
-
-    prompt_name: selected template
-  
-  return :
-
-    instance of PromptTemplate to be formatted according to the 
-    input_variables. 
-
+async def load_prompt(
+    prompt_name: str = "query",
+    context: str = '',
+    evaluation: str = '',
+    *args,
+    **kwargs
+) -> str:
+    """
+    Args:
+        prompt_name: Name of the prompt template to load
+        context: Context string to include in the prompt
+        evaluation: Evaluation criteria to include in the prompt
+        *args: Additional positional arguments (currently unused)
+        **kwargs: Additional keyword arguments for template formatting
     
-  """
-  try:
-    async with asyncio.timeout(time_out):
-      async with _semaphore:
+    Returns:
+        str: Formatted prompt template with inserted values
+    
+    Raises:
+        ValueError: If prompt_name is not found or required template variables are missing
+    """
+    prompt_template = PROMPT.get(prompt_name)
+    if prompt_template is None:
+        raise ValueError(f"Prompt template '{prompt_name}' not found.")
+    
+    prompt_template = prompt_template["template"]
+    
+    if context:
+        fmt_kwargs = {
+            k: v for k, v in {'context': context, 'evaluation': evaluation, **kwargs}.items() 
+            if v is not None
+        }
+        try:
+            prompt_template = prompt_template.format(**fmt_kwargs)
+        except KeyError as e:
+            raise ValueError(f"Missing required template variable: {e.args[0]}")
+    
+    return prompt_template
 
-        data = json.loads(Path(prompt_path).read_text())
-        prompt_data = data[prompt_name]
 
-        return PromptTemplate(
-          input_variables=prompt_data.get("input_variables"),
-          template=prompt_data.get("template"),
-          template_format=prompt_data.get("template_format", "f-string")
-        )
 
-  except asyncio.TimeoutError:
-    return "Timed out while loading prompt"
+if __name__=="__main__":
+  fire.Fire(load_prompt)
