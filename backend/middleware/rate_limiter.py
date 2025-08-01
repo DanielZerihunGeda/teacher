@@ -1,8 +1,13 @@
 from typing import Callable, Any
 import asyncio
+from prometheus_client import Gauge
+
+
 
 class RateLimiter:
-    def __init__(self, max_concurrency: int = 32):
+    def __init__(self, 
+    max_concurrency: int = 32,
+    timeout: int = 60):
         """
         Initialize the RateLimiter with maximum concurrent operations.
 
@@ -11,6 +16,8 @@ class RateLimiter:
             max_concurrency: max_concurrency
         """
         self.semaphore = asyncio.Semaphore(value=max_concurrency)
+        self.timeout = timeout
+        self.active_requests = Gauge('active_requests', 'Number of active requests')
 
     def rate_limited(self, func: Callable) -> Callable:
         """
@@ -23,9 +30,13 @@ class RateLimiter:
             A wrapped function with rate limiting
         """
         async def wrapper(*args, **kwargs):
-            async with self.semaphore:
-                return await func(*args, **kwargs)
-        return wrapper
+          try:
+              async with asyncio.timeout(self.timeout): 
+                  async with self.semaphore:
+                    with self.active_requests.track_inprogress():
+                      return await func(*args, **kwargs)
+          except asyncio.TimeoutError:
+              raise TimeoutError("Request timed out waiting for semaphore")
 
     async def acquire(self) -> None:
         """Acquire the semaphore for manual rate limiting."""
