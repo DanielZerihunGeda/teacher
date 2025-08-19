@@ -5,7 +5,7 @@ import os
 import asyncpg
 import httpx
 import jwt
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Response
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 
@@ -67,7 +67,7 @@ async def create_user(email: str, first_name: str, last_name: str, password: str
 
 
 @app.get("/auth/google/callback")
-async def google_callback(code: str = Query(...)):
+async def google_callback(response: Response, code: str = Query(...)):
     async with httpx.AsyncClient() as client:
         token_res = await client.post(
             "https://oauth2.googleapis.com/token",
@@ -99,4 +99,16 @@ async def google_callback(code: str = Query(...)):
         await create_user(email, first_name, last_name, os.urandom(16).hex())
 
     jwt_token = create_access_token({"sub": email})
-    return {"access_token": jwt_token, "token_type": "bearer"}
+    
+
+    # Save token in HttpOnly cookie
+    response.set_cookie(
+          key="access_token",
+          value=jwt_token,
+          httponly=True,
+          secure=True,
+          samesite="strict"
+    )
+
+
+    return {"message":"Login Successful, JWT stored in cookie"}
