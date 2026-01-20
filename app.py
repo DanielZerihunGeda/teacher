@@ -1,18 +1,17 @@
 import asyncio
-import requests
-import bs4 as BeautifulSoup
+import aiohttp
+from bs4 import BeautifulSoup
 
-req = requests.get('https://ease-int.com/')
-html = req.text
-
-content = BeautifulSoup(html, "html.parser")
-
-
-async def root():
-  return content.text
+async def fetch_text(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            html = await resp.text()
+            soup = BeautifulSoup(html, "html.parser")
+            return soup.get_text()
 
 async def main():
-  await root()
+    text = await fetch_text("https://ease-int.com/")
+    print(text)
 
 if __name__ == "__main__":
-  asyncio.run(main())
+    asyncio.run(main())
