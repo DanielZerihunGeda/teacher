@@ -11,7 +11,7 @@ content = BeautifulSoup(html, "html.parser")
 async def root():
   return content.text
 
-async main():
+async def main():
   await root()
 
 if __name__ == "__main__":
