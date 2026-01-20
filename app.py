@@ -10,3 +10,9 @@ content = BeautifulSoup(html, "html.parser")
 
 async def root():
   return content.text
+
+async main():
+  await root()
+
+if __name__ == "__main__":
+  asyncio.run(main())
